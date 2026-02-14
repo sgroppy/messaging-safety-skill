@@ -23,7 +23,28 @@ claw skill setup messaging-safety
 
 ## Quick Start
 
-1. **Edit config** (`~/.openclaw/skills/messaging-safety/config/rules.yaml`):
+### 1. Configure Your Groups
+
+Use the **Group Manager** for easy group management:
+
+```bash
+cd scripts
+./group-manager.sh list              # Show all groups
+./group-manager.sh add my_team -1001234567890 telegram
+./group-manager.sh update my_team -1009876543210
+```
+
+Or edit `config/rules.yaml` directly:
+
+```yaml
+groups:
+  expertclaw_ops:
+    id: "-1003732570253"
+    platform: "telegram"
+    name: "ExpertClaw Ops"
+```
+
+### 2. Configure Message Rules
 
 ```yaml
 destinations:

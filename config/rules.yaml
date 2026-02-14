@@ -15,7 +15,31 @@
 
 version: "2.0"
 
-# Define your destinations
+# Group Mappings
+# Easy reference for group names → IDs
+# Use these aliases in rules instead of remembering numeric IDs
+groups:
+  # Telegram Groups
+  expertclaw_ops:
+    id: "-1003732570253"
+    platform: "telegram"
+    name: "ExpertClaw Ops"
+    description: "Internal business operations"
+    
+  darien_advisors:
+    id: "TBD"
+    platform: "telegram"
+    name: "Darien Advisors"
+    description: "External partner group"
+    requires_approval: true
+    
+  # Add your groups here:
+  # my_group:
+  #   id: "-1001234567890"
+  #   platform: "telegram"
+  #   name: "My Group Name"
+
+# Define your destinations (users and groups)
 destinations:
   boss_dm:
     id: "5185778742"
