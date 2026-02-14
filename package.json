@@ -1,0 +1,29 @@
+{
+  "name": "messaging-safety",
+  "version": "1.0.0",
+  "description": "Pre-send validation to prevent mis-routed messages",
+  "main": "lib/validator.ts",
+  "scripts": {
+    "setup": "ts-node scripts/setup.ts",
+    "test": "ts-node scripts/test.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.5",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "openclaw",
+    "skill",
+    "messaging",
+    "safety",
+    "validation"
+  ],
+  "author": "Expert Claw",
+  "license": "MIT"
+}

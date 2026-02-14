@@ -1,0 +1,140 @@
+# Example: Complex Rule Configuration
+# Shows advanced features of messaging-safety skill
+
+version: "2.0"
+
+destinations:
+  # Personal
+  my_dm:
+    id: "123456789"
+    type: "telegram"
+    name: "My DM"
+    
+  family_chat:
+    id: "-100111111111"
+    type: "telegram"
+    name: "Family Chat"
+
+  # Work - Internal
+  team_chat:
+    id: "-100222222222"
+    type: "telegram"
+    name: "Team Chat"
+    
+  dev_ops:
+    id: "-100333333333"
+    type: "telegram"
+    name: "DevOps Alerts"
+
+  # Work - External
+  client_acme:
+    id: "-100444444444"
+    type: "telegram"
+    name: "ACME Corp (Client)"
+    
+  public_announce:
+    id: "@mychannel"
+    type: "telegram"
+    name: "Public Channel"
+
+# Complex message type rules
+message_types:
+  # Personal digests - never leave DM
+  digest:
+    "*":
+      allowed_in: [my_dm]
+      blocked_in: [team_chat, dev_ops, client_acme, public_announce]
+      reason: "Personal digests stay private"
+      
+    morning:
+      allowed_in: [my_dm]
+      blocked_in: ["*"]
+      content_patterns:
+        - "Good morning"
+        - "☕"
+        - "Daily briefing"
+      
+    reddit:
+      allowed_in: [my_dm]
+      blocked_in: ["*"]
+      content_patterns:
+        - "r/\w+"
+        - "upvotes"
+      
+    # Weekly can go to team with confirmation
+    weekly:
+      allowed_in: [my_dm, team_chat]
+      blocked_in: [client_acme, public_announce]
+      requires_confirmation: [team_chat]
+
+  # Business updates
+  business:
+    "*":
+      allowed_in: [my_dm, team_chat]
+      blocked_in: [family_chat]
+      
+    # Revenue is most sensitive
+    revenue:
+      allowed_in: [my_dm]
+      blocked_in: [team_chat, dev_ops, client_acme, public_announce, family_chat]
+      reason: "Financial data - DM only"
+      
+    # Client updates
+    client_update:
+      allowed_in: [my_dm, team_chat, client_acme]
+      blocked_in: [family_chat, public_announce]
+      requires_confirmation: [client_acme]
+      
+    # Team announcements
+    team_announcement:
+      allowed_in: [my_dm, team_chat]
+      blocked_in: [client_acme, family_chat, public_announce]
+
+  # System alerts
+  system:
+    "*":
+      allowed_in: [my_dm, dev_ops]
+      blocked_in: [family_chat, client_acme, public_announce]
+      
+    critical:
+      allowed_in: [my_dm, dev_ops, team_chat]
+      blocked_in: [family_chat, client_acme, public_announce]
+      # No confirmation needed for critical alerts
+
+  # Social/Family
+  personal:
+    "*":
+      allowed_in: [my_dm, family_chat]
+      blocked_in: [team_chat, dev_ops, client_acme, public_announce]
+
+# Advanced detection
+detection_rules:
+  - name: "financial_data"
+    patterns:
+      - "\$[\d,]+"
+      - "revenue"
+      - "profit"
+      - "Q[1-4] earnings"
+    classify_as: "business.revenue"
+    
+  - name: "urgent_alert"
+    patterns:
+      - "CRITICAL"
+      - "ALERT"
+      - "DOWN"
+      - "ERROR"
+    classify_as: "system.critical"
+    
+  - name: "client_mention"
+    patterns:
+      - "@client"
+      - "ACME"
+      - "deliverable"
+    classify_as: "business.client_update"
+
+defaults:
+  unknown_message_type:
+    action: "ask"
+    message: "I don't recognize this message type. Send to your DM?"
+
+override_code: "BOSS_OVERRIDE"
