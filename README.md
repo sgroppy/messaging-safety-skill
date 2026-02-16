@@ -171,6 +171,10 @@ Include `BOSS_OVERRIDE` in any message to skip validation:
 BOSS_OVERRIDE: Send this immediately
 ```
 
+## TODO
+- [ ] Add convention for the config such as ANYONE_ELSE, useful to say allow here, block anywhere else
+- [ ] add tests for ssh scripts and ts
+
 ## License
 
 MIT
