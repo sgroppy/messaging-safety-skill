@@ -38,10 +38,10 @@ Or edit `config/rules.yaml` directly:
 
 ```yaml
 groups:
-  expertclaw_ops:
-    id: "-1003732570253"
+  my_team:
+    id: "-1001234567890"
     platform: "telegram"
-    name: "ExpertClaw Ops"
+    name: "My Team"
 ```
 
 ### 2. Configure Message Rules
@@ -104,10 +104,10 @@ More specific rules override wildcards:
 
 ```yaml
 destinations:
-  boss_dm:
-    id: "5185778742"        # Telegram chat ID
+  my_dm:
+    id: "123456789"        # Your Telegram chat ID
     type: "telegram"
-    name: "Boss"
+    name: "My DM"
 ```
 
 ### Detection Rules

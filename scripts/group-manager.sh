@@ -9,22 +9,27 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RULES_FILE="${SCRIPT_DIR}/../config/rules.yaml"
 
-# Colors
+# Colors - using printf for compatibility
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    printf "${BLUE}[INFO]${NC} %s\n" "$1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
+    printf "${GREEN}[OK]${NC} %s\n" "$1" >&2
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    printf "${YELLOW}[WARN]${NC} %s\n" "$1" >&2
+}
+
+log_error() {
+    printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
 }
 
 # Show current groups
@@ -33,24 +38,85 @@ cmd_list() {
     echo "================="
     echo ""
     
-    # Parse groups from YAML (simple grep approach)
-    if grep -q "^groups:" "$RULES_FILE"; then
-        # Extract group names and IDs
-        awk '/^groups:/{flag=1} /^[^ ]/{if(flag && !/^groups:/)flag=0} flag' "$RULES_FILE" | \
-        grep -E "^[ ]+[a-z_]+:" | \
-        while read -r line; do
-            group_name=$(echo "$line" | sed 's/://g' | xargs)
-            # Get the next lines for this group
-            awk "/^groups:/{found=1} found && /^  $group_name:/{p=1} p{print; if(/^  [a-z_]+:/ && NR>1)exit}" "$RULES_FILE" | \
-            grep -E "(id:|name:|platform:)" | \
-            head -3
-            echo "---"
-        done
-    else
+    # Parse groups from YAML
+    if ! grep -q "^groups:" "$RULES_FILE"; then
         echo "No groups configured yet."
         echo ""
-        echo "Add a group with: group-manager add <name> <id>"
+        echo "Add a group with: group-manager add <name> <id> [platform] [topic_id]"
+        return 0
     fi
+    
+    # Parse group blocks
+    local in_groups=false
+    local group_name=""
+    local group_id=""
+    local group_topic=""
+    local group_platform=""
+    local group_desc=""
+    local count=0
+    
+    while IFS= read -r line; do
+        # Detect start of groups section
+        if [[ "$line" =~ ^groups: ]]; then
+            in_groups=true
+            continue
+        fi
+        
+        # Exit groups section at next top-level key
+        if $in_groups && [[ "$line" =~ ^[a-z_]+: ]] && [[ ! "$line" =~ ^groups: ]]; then
+            in_groups=false
+            continue
+        fi
+        
+        if $in_groups; then
+            # New group entry (2-space indent + name:)
+            if [[ "$line" =~ ^\ \ ([a-z_0-9]+):$ ]]; then
+                # Print previous group if we have one
+                if [[ -n "$group_name" ]]; then
+                    echo "Name: $group_name"
+                    [[ -n "$group_id" ]] && echo "  ID: $group_id"
+                    [[ -n "$group_topic" && "$group_topic" != "null" ]] && echo "  Topic ID: $group_topic"
+                    [[ -n "$group_platform" ]] && echo "  Platform: $group_platform"
+                    [[ -n "$group_desc" ]] && echo "  Description: $group_desc"
+                    echo "---"
+                    ((count++)) || true
+                fi
+                # Start new group
+                group_name="${BASH_REMATCH[1]}"
+                group_id=""
+                group_topic=""
+                group_platform=""
+                group_desc=""
+            # Group properties (4-space indent)
+            elif [[ "$line" =~ ^\ \ \ \ id:\ *(.*)$ ]]; then
+                group_id="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\ \ \ \ topic_id:\ *(.*)$ ]]; then
+                group_topic="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\ \ \ \ platform:\ *(.*)$ ]]; then
+                group_platform="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\ \ \ \ description:\ *(.*)$ ]]; then
+                group_desc="${BASH_REMATCH[1]}"
+            fi
+        fi
+    done < "$RULES_FILE"
+    
+    # Print last group
+    if [[ -n "$group_name" ]]; then
+        echo "Name: $group_name"
+        [[ -n "$group_id" ]] && echo "  ID: $group_id"
+        [[ -n "$group_topic" && "$group_topic" != "null" ]] && echo "  Topic ID: $group_topic"
+        [[ -n "$group_platform" ]] && echo "  Platform: $group_platform"
+        [[ -n "$group_desc" ]] && echo "  Description: $group_desc"
+        ((count++)) || true
+    fi
+    
+    if [[ $count -eq 0 ]]; then
+        echo "No groups configured yet."
+        echo ""
+        echo "Add a group with: group-manager add <name> <id> [platform] [topic_id]"
+    fi
+    
+    return 0
 }
 
 # Add a new group
@@ -58,10 +124,12 @@ cmd_add() {
     local name="${1:-}"
     local id="${2:-}"
     local platform="${3:-telegram}"
+    local topic_id="${4:-}"
     
     if [[ -z "$name" || -z "$id" ]]; then
-        echo "Usage: group-manager add <name> <id> [platform]"
+        echo "Usage: group-manager add <name> <id> [platform] [topic_id]"
         echo "Example: group-manager add my_team -1001234567890 telegram"
+        echo "Example with topic: group-manager.sh add my_topic -1001234567890 telegram 42"
         exit 1
     fi
     
@@ -72,24 +140,24 @@ cmd_add() {
         exit 1
     fi
     
-    # Add group to YAML
-    # Find the line after "groups:" and insert there
     log_info "Adding group: $name (ID: $id)"
     
-    # Create temp file with new group
-    awk '
-        /^groups:/{ 
-            print
-            print "  "name":"
-            print "    id: \""id"\""
-            print "    platform: \""platform"\""
-            print "    name: \""name"\""
-            getline
-        }
-        {print}
-    ' name="$name" id="$id" platform="$platform" "$RULES_FILE" > "${RULES_FILE}.tmp"
+    # Build group entry as separate lines
+    {
+        echo ""
+        echo "  $name:"
+        echo "    id: \"$id\""
+        echo "    platform: \"$platform\""
+        if [[ -n "$topic_id" ]]; then
+            echo "    topic_id: \"$topic_id\""
+            log_info "Topic ID: $topic_id"
+        fi
+        echo "    name: \"$name\""
+    } > /tmp/group_entry_$$
     
-    mv "${RULES_FILE}.tmp" "$RULES_FILE"
+    # Insert after groups: line using sed
+    sed -i "/^groups:/r /tmp/group_entry_$$" "$RULES_FILE"
+    rm -f /tmp/group_entry_$$
     
     log_success "Group '$name' added successfully"
     echo ""
@@ -137,16 +205,14 @@ cmd_remove() {
     
     log_warn "Removing group: $name"
     
-    # Remove group block from YAML
+    # Remove group block from YAML using awk
+    # This removes the group entry and all its 4-space indented properties
     awk '
-        /^  name:/{ 
-            if (skip) {skip=0; next}
+        /^  [a-z_0-9]+:/{ 
+            in_block = ($0 ~ "^  "name":")
         }
-        /^  [a-z_]+:/{ 
-            if ($1 == "  '"$name"':") {skip=1; next}
-        }
-        !skip {print}
-    ' "$RULES_FILE" > "${RULES_FILE}.tmp"
+        !in_block { print }
+    ' name="$name" "$RULES_FILE" > "${RULES_FILE}.tmp"
     
     mv "${RULES_FILE}.tmp" "$RULES_FILE"
     
@@ -176,11 +242,11 @@ Manage Telegram groups easily without editing YAML manually.
 
 COMMANDS:
 
-  list              Show all configured groups
-  add <name> <id> [platform]   Add a new group
-  update <name> <new_id>       Update group ID
-  remove <name>                 Remove a group
-  get <name>                    Get group ID
+  list                    Show all configured groups
+  add <name> <id> [platform] [topic_id]   Add a new group
+  update <name> <new_id>  Update group ID
+  remove <name>           Remove a group
+  get <name>              Get group ID
 
 EXAMPLES:
 
@@ -189,6 +255,9 @@ EXAMPLES:
 
   # Add a new Telegram group
   ./group-manager.sh add my_team -1001234567890 telegram
+
+  # Add a group with a specific topic
+  ./group-manager.sh add content_topic -1001234567890 telegram 42
 
   # Update group ID
   ./group-manager.sh update my_team -1009876543210
