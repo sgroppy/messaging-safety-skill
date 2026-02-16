@@ -3,39 +3,64 @@
 
 version: "2.0"
 
-destinations:
+# Group Mappings (with optional topic IDs)
+# Use these aliases in rules instead of remembering numeric IDs
+groups:
   # Personal
   my_dm:
     id: "123456789"
-    type: "telegram"
+    platform: "telegram"
     name: "My DM"
     
   family_chat:
     id: "-100111111111"
-    type: "telegram"
+    platform: "telegram"
     name: "Family Chat"
 
   # Work - Internal
   team_chat:
     id: "-100222222222"
-    type: "telegram"
+    platform: "telegram"
     name: "Team Chat"
     
   dev_ops:
     id: "-100333333333"
-    type: "telegram"
+    platform: "telegram"
     name: "DevOps Alerts"
 
   # Work - External
   client_acme:
     id: "-100444444444"
-    type: "telegram"
+    platform: "telegram"
     name: "ACME Corp (Client)"
+    requires_approval: true
     
   public_announce:
     id: "@mychannel"
-    type: "telegram"
+    platform: "telegram"
     name: "Public Channel"
+
+  # Example with topic ID (sends to specific topic within group)
+  team_chat_announcements:
+    id: "-100222222222"
+    topic_id: "10"
+    platform: "telegram"
+    name: "Team Chat - Announcements Topic"
+
+# Define your destinations (users and groups)
+# Groups above are automatically available as destinations
+destinations:
+  my_dm:
+    id: "123456789"
+    type: "telegram"
+    name: "My DM"
+    priority: 1
+    
+  team_chat:
+    id: "-100222222222"
+    type: "telegram"
+    name: "Team Chat"
+    priority: 2
 
 # Complex message type rules
 message_types:
@@ -87,7 +112,7 @@ message_types:
       
     # Team announcements
     team_announcement:
-      allowed_in: [my_dm, team_chat]
+      allowed_in: [my_dm, team_chat, team_chat_announcements]
       blocked_in: [client_acme, family_chat, public_announce]
 
   # System alerts
